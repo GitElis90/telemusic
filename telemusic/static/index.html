@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Song Library</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0f1115;
+    --card: #1a1d24;
+    --text: #f2f2f2;
+    --muted: #9aa0aa;
+    --accent: #5b8cff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding-bottom: 96px;
+  }
+  header {
+    padding: 24px 20px 12px;
+  }
+  header h1 { margin: 0 0 4px; font-size: 22px; }
+  header p { margin: 0; color: var(--muted); font-size: 14px; }
+  #list { padding: 8px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .row {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--card); border-radius: 12px; padding: 12px 14px;
+    cursor: pointer;
+  }
+  .row.active { outline: 2px solid var(--accent); }
+  .row .play { flex: none; width: 36px; height: 36px; border-radius: 50%;
+    background: var(--accent); display: flex; align-items: center; justify-content: center;
+    font-size: 14px; }
+  .meta { min-width: 0; flex: 1; }
+  .title { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .performer { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dur { color: var(--muted); font-size: 13px; flex: none; }
+  #empty { color: var(--muted); padding: 24px; text-align: center; }
+  #player-bar {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: var(--card); padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+    display: none; flex-direction: column; gap: 6px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  #player-bar.show { display: flex; }
+  #now-playing { font-size: 13px; color: var(--muted); }
+  audio { width: 100%; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Song Library</h1>
+    <p>Streamed straight from Telegram</p>
+  </header>
+  <div id="list"></div>
+  <div id="empty" style="display:none;">No songs found yet.</div>
+
+  <div id="player-bar">
+    <div id="now-playing"></div>
+    <audio id="audio" controls></audio>
+  </div>
+
+<script>
+const list = document.getElementById('list');
+const empty = document.getElementById('empty');
+const audio = document.getElementById('audio');
+const bar = document.getElementById('player-bar');
+const nowPlaying = document.getElementById('now-playing');
+let rows = [];
+
+function fmtTime(s) {
+  s = Math.round(s || 0);
+  const m = Math.floor(s / 60), r = s % 60;
+  return `${m}:${r.toString().padStart(2, '0')}`;
+}
+
+function play(song, rowEl) {
+  rows.forEach(r => r.classList.remove('active'));
+  rowEl.classList.add('active');
+  audio.src = `/api/stream/${song.id}`;
+  audio.play();
+  bar.classList.add('show');
+  nowPlaying.textContent = song.performer ? `${song.title} — ${song.performer}` : song.title;
+}
+
+async function load() {
+  const res = await fetch('/api/songs');
+  const songs = await res.json();
+  if (!songs.length) { empty.style.display = 'block'; return; }
+  songs.forEach(song => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `
+      <div class="play">▶</div>
+      <div class="meta">
+        <div class="title"></div>
+        <div class="performer"></div>
+      </div>
+      <div class="dur">${fmtTime(song.duration)}</div>
+    `;
+    row.querySelector('.title').textContent = song.title;
+    row.querySelector('.performer').textContent = song.performer || '';
+    row.addEventListener('click', () => play(song, row));
+    list.appendChild(row);
+    rows.push(row);
+  });
+}
+load();
+</script>
+</body>
+</html>
